@@ -21,12 +21,6 @@ jobs:
     - name: Publish .NET Core Project
       run: dotnet publish MickeyUtilityG/MickeyUtilityG/MickeyUtilityG.csproj -c Release -o release --nologo
     
-    - name: Update appsettings.json
-      run: |
-        sed -i 's/YOUR_PRODUCTION_CLIENT_ID/${{ secrets.GOOGLE_CLIENT_ID }}/g' release/wwwroot/appsettings.json
-        sed -i 's/YOUR_PRODUCTION_CLIENT_SECRET/${{ secrets.GOOGLE_CLIENT_SECRET }}/g' release/wwwroot/appsettings.json
-        sed -i 's/YOUR_PRODUCTION_SPREADSHEET_ID/${{ secrets.GOOGLE_SPREADSHEET_ID }}/g' release/wwwroot/appsettings.json
-    
     - name: Change base-tag in index.html from / to MickeyUtilityG
       run: sed -i 's/<base href="\/" \/>/<base href="\/MickeyUtilityG\/" \/>/g' release/wwwroot/index.html
     
@@ -37,3 +31,22 @@ jobs:
       uses: JamesIves/github-pages-deploy-action@v4
       with:
         folder: release/wwwroot
+
+    - name: Checkout gh-pages
+      uses: actions/checkout@v2
+      with:
+        ref: gh-pages
+        
+    - name: Update appsettings.json with secrets
+      run: |
+        sed -i 's/PLACEHOLDER_GOOGLE_CLIENT_ID/${{ secrets.GOOGLE_CLIENT_ID }}/g' appsettings.json
+        sed -i 's/PLACEHOLDER_GOOGLE_CLIENT_SECRET/${{ secrets.GOOGLE_CLIENT_SECRET }}/g' appsettings.json
+        sed -i 's/PLACEHOLDER_GOOGLE_SPREADSHEET_ID/${{ secrets.GOOGLE_SPREADSHEET_ID }}/g' appsettings.json
+        
+    - name: Commit updated appsettings.json
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add appsettings.json
+        git commit -m "Update appsettings.json with secrets" || echo "No changes to commit"
+        git push
