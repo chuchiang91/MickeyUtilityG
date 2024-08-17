@@ -1,0 +1,37 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy-to-github-pages:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Setup .NET Core SDK
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: '8.0.x'
+        
+    - name: Update appsettings.json
+      run: |
+        sed -i 's/"YOUR_PRODUCTION_CLIENT_ID"/"${{ secrets.GOOGLE_CLIENT_ID }}"/g' MickeyUtilityG/wwwroot/appsettings.json
+        sed -i 's/"YOUR_PRODUCTION_CLIENT_SECRET"/"${{ secrets.GOOGLE_CLIENT_SECRET }}"/g' MickeyUtilityG/wwwroot/appsettings.json
+        sed -i 's/"YOUR_PRODUCTION_SPREADSHEET_ID"/"${{ secrets.GOOGLE_SPREADSHEET_ID }}"/g' MickeyUtilityG/wwwroot/appsettings.json
+        
+    - name: Publish .NET Core Project
+      run: dotnet publish MickeyUtilityG/MickeyUtilityG.csproj -c Release -o release --nologo
+    
+    - name: Change base-tag in index.html from / to MickeyUtilityG
+      run: sed -i 's/<base href="\/" \/>/<base href="\/MickeyUtilityG\/" \/>/g' release/wwwroot/index.html
+    
+    - name: Add .nojekyll file
+      run: touch release/wwwroot/.nojekyll
+      
+    - name: Commit wwwroot to GitHub Pages
+      uses: JamesIves/github-pages-deploy-action@4.1.5
+      with:
+        branch: gh-pages
+        folder: release/wwwroot

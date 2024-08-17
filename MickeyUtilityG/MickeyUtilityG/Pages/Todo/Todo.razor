@@ -1,0 +1,408 @@
+﻿@page "/todolist"
+@page "/authentication/google-callback"
+@using MickeyUtilityG.Services
+@using MickeyUtilityG.Services.PageServices
+@using MickeyUtilityG.Models
+@using MickeyUtilityG.Services.Shared
+@inject TodoListService TodoListService
+@inject NavigationManager NavigationManager
+@inject GoogleSheetsApiService GoogleSheetsApiService
+@inject ILogger<Todo> Logger
+
+<link href="css/Shared/pastelPurpleWeb.css" rel="stylesheet" />
+<link href="css/Shared/Toast.css" rel="stylesheet" />
+
+<div class="page-container">
+    <div class="page-header">
+        <h1 class="page-title">To-Do List</h1>
+        <div class="flip-clock">
+            <div class="flip-clock-item">@DateTime.Now.ToString("HH")</div>
+            <div class="flip-clock-item">@DateTime.Now.ToString("mm")</div>
+        </div>
+    </div>
+
+    <div class="category-buttons">
+        <button class="category-btn @(currentFilter == "all" ? "active" : "")" @onclick="@(() => FilterTasks("all"))">All</button>
+        <button class="category-btn @(currentFilter == "completed" ? "active" : "")" @onclick="@(() => FilterTasks("completed"))">Completed</button>
+        <button class="category-btn @(currentFilter == "incomplete" ? "active" : "")" @onclick="@(() => FilterTasks("incomplete"))">Incomplete</button>
+    </div>
+
+    <div class="countdown-section">
+        <h3>Weekend Countdown</h3>
+        <p>@GetWeekendCountdown()</p>
+    </div>
+
+    <div class="progress-bars">
+        <div class="progress-item">
+            <span>Year: @GetYearProgress()%</span>
+            <div class="progress-bar" style="width: @GetYearProgress()%"></div>
+        </div>
+        <div class="progress-item">
+            <span>Month: @GetMonthProgress()%</span>
+            <div class="progress-bar" style="width: @GetMonthProgress()%"></div>
+        </div>
+        <div class="progress-item">
+            <span>Week: @GetWeekProgress()%</span>
+            <div class="progress-bar" style="width: @GetWeekProgress()%"></div>
+        </div>
+        <div class="progress-item">
+            <span>Day: @GetDayProgress()%</span>
+            <div class="progress-bar" style="width: @GetDayProgress()%"></div>
+        </div>
+    </div>
+
+    @if (!isAuthenticated)
+    {
+        <button class="btn btn-primary" @onclick="Authenticate">Login with Google</button>
+    }
+
+    @if (isLoading)
+    {
+        <p>Loading...</p>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <p class="text-danger">@errorMessage</p>
+    }
+    else if (isAuthenticated)
+    {
+        <div class="form-grid">
+            <input type="text" class="input-small" placeholder="Add a new task..." @bind="newItem.Title" @bind:event="oninput" />
+            <input type="text" class="input-small" placeholder="Description" @bind="newItem.Description" />
+            <input type="date" class="input-small" @bind="newItem.DueDate" />
+            <input type="text" class="input-small" placeholder="Category" @bind="newItem.Category" />
+            <select class="input-small" @bind="newItem.ParentTaskId">
+                <option value="">Select Parent Task (optional)</option>
+                @foreach (var item in todoItems.Where(i => string.IsNullOrEmpty(i.ParentTaskId)))
+                {
+                    <option value="@item.ID">@item.Title</option>
+                }
+            </select>
+            <button class="btn-primary" @onclick="AddNewItem">Add Task</button>
+        </div>
+
+        <ul class="item-list">
+            @foreach (var item in FilteredTodoItems.Where(i => string.IsNullOrEmpty(i.ParentTaskId)))
+            {
+                <li class="list-item @(item.IsCompleted ? "completed" : "") @(item.IsDeleted ? "deleted" : "")">
+                    <span class="item-category category-@item.Category.ToLower()">@item.Category</span>
+                    @if (editingItem == item)
+                    {
+                        <div class="edit-form">
+                            <input type="text" class="edit-input" @bind="item.Title" />
+                            <input type="text" class="edit-input" @bind="item.Description" />
+                            <input type="date" class="edit-date" @bind="item.DueDate" />
+                            <input type="text" class="edit-input" @bind="item.Category" />
+                            <div class="edit-actions">
+                                <button class="btn-save" @onclick="@(() => SaveEdit(item))">Save</button>
+                                <button class="btn-cancel" @onclick="CancelEdit">Cancel</button>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <input type="checkbox" class="item-checkbox" checked="@item.IsCompleted" @onchange="@(() => ToggleTaskCompletion(item.ID))" />
+                        <div class="item-content">
+                            <span class="item-text">@item.Title</span>
+                            <span class="item-description">@item.Description</span>
+                            <span class="item-date">@(item.DueDate?.ToString("MM/dd/yyyy"))</span>
+                            <span class="item-created-at">Created: @item.CreatedAt.ToString("MM/dd/yyyy HH:mm:ss")</span>
+                            <span class="item-updated-at">Updated: @item.UpdatedAt.ToString("MM/dd/yyyy HH:mm:ss")</span>
+                        </div>
+                        <div class="item-actions">
+                            <button class="btn-edit" @onclick="@(() => StartEdit(item))">Edit</button>
+                            <button class="btn-delete" @onclick="@(() => RemoveItem(item))">Delete</button>
+                            <button class="btn-toggle-subtasks" @onclick="@(() => ToggleSubtasks(item))">
+                                @(expandedItems.Contains(item.ID) ? "▼" : "►")
+                            </button>
+                        </div>
+                    }
+                    @if (expandedItems.Contains(item.ID))
+                    {
+                        <ul class="subtask-list">
+                            @foreach (var subtask in FilteredTodoItems.Where(i => i.ParentTaskId == item.ID))
+                            {
+                                <li class="list-item subtask-item @(subtask.IsCompleted ? "completed" : "") @(subtask.IsDeleted ? "deleted" : "")">
+                                    <span class="item-category category-@subtask.Category.ToLower()">@subtask.Category</span>
+                                    @if (editingItem == subtask)
+                                    {
+                                        <div class="edit-form">
+                                            <input type="text" class="edit-input" @bind="subtask.Title" />
+                                            <input type="text" class="edit-input" @bind="subtask.Description" />
+                                            <input type="date" class="edit-date" @bind="subtask.DueDate" />
+                                            <input type="text" class="edit-input" @bind="subtask.Category" />
+                                            <div class="edit-actions">
+                                                <button class="btn-save" @onclick="@(() => SaveEdit(subtask))">Save</button>
+                                                <button class="btn-cancel" @onclick="CancelEdit">Cancel</button>
+                                            </div>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <input type="checkbox" class="item-checkbox" checked="@subtask.IsCompleted" @onchange="@(() => ToggleTaskCompletion(subtask.ID))" />
+                                        <div class="item-content">
+                                            <span class="item-text">@subtask.Title</span>
+                                            <span class="item-description">@subtask.Description</span>
+                                            <span class="item-date">@(subtask.DueDate?.ToString("MM/dd/yyyy"))</span>
+                                            <span class="item-created-at">Created: @subtask.CreatedAt.ToString("MM/dd/yyyy HH:mm:ss")</span>
+                                            <span class="item-updated-at">Updated: @subtask.UpdatedAt.ToString("MM/dd/yyyy HH:mm:ss")</span>
+                                        </div>
+                                        <div class="item-actions">
+                                            <button class="btn-edit" @onclick="@(() => StartEdit(subtask))">Edit</button>
+                                            <button class="btn-delete" @onclick="@(() => RemoveItem(subtask))">Delete</button>
+                                        </div>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    }
+                </li>
+            }
+        </ul>
+    }
+</div>
+
+<Toast @ref="toast" />
+
+@code {
+    private List<TodoItem> todoItems = new List<TodoItem>();
+    private TodoItem newItem = new TodoItem { DueDate = DateTime.Today.AddDays(1) };
+    private bool isLoading = false;
+    private bool isAuthenticated = false;
+    private string errorMessage;
+    private Toast toast;
+    private TodoItem editingItem;
+    private string currentFilter = "all";
+    private HashSet<string> expandedItems = new HashSet<string>();
+
+    private IEnumerable<TodoItem> FilteredTodoItems => currentFilter switch
+    {
+        "completed" => todoItems.Where(item => item.IsCompleted && !item.IsDeleted),
+        "incomplete" => todoItems.Where(item => !item.IsCompleted && !item.IsDeleted),
+        _ => todoItems.Where(item => !item.IsDeleted)
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var uri = new Uri(NavigationManager.Uri);
+        if (uri.AbsolutePath.Contains("/authentication/google-callback"))
+        {
+            await HandleAuthenticationCallback();
+        }
+        else
+        {
+            await CheckAuthenticationStatus();
+        }
+    }
+
+    private async Task HandleAuthenticationCallback()
+    {
+        var uri = new Uri(NavigationManager.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var code = query["code"];
+
+        if (!string.IsNullOrEmpty(code))
+        {
+            try
+            {
+                await GoogleSheetsApiService.HandleAuthorizationCodeAsync(code);
+                isAuthenticated = true;
+                await LoadTodoList();
+                NavigationManager.NavigateTo("/todolist");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error handling authentication callback");
+                errorMessage = "Authentication failed. Please try again.";
+                NavigationManager.NavigateTo("/todolist");
+            }
+        }
+        else
+        {
+            errorMessage = "Authentication failed. Please try again.";
+            NavigationManager.NavigateTo("/todolist");
+        }
+    }
+
+    private async Task CheckAuthenticationStatus()
+    {
+        isAuthenticated = GoogleSheetsApiService.IsAuthenticated();
+        if (isAuthenticated)
+        {
+            await LoadTodoList();
+        }
+    }
+
+    private async Task Authenticate()
+    {
+        try
+        {
+            isLoading = true;
+            var authResult = await GoogleSheetsApiService.AuthenticateAsync();
+            if (authResult)
+            {
+                isAuthenticated = true;
+                await LoadTodoList();
+            }
+            else
+            {
+                errorMessage = "Authentication failed. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "An error occurred during authentication");
+            errorMessage = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadTodoList()
+    {
+        try
+        {
+            isLoading = true;
+            todoItems = await TodoListService.GetTodoListFromGoogleSheets();
+            Logger.LogInformation($"Loaded {todoItems.Count} todo items");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading todo list");
+            errorMessage = $"Error loading todo list: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task AddNewItem()
+    {
+        if (string.IsNullOrWhiteSpace(newItem.Title))
+        {
+            await toast.ShowToast("Task title is required", "error");
+            return;
+        }
+
+        try
+        {
+            newItem.CreatedAt = DateTimeOffset.Now;
+            newItem.UpdatedAt = DateTimeOffset.Now;
+            newItem.LastModifiedDate = DateTimeOffset.Now;
+            todoItems = await TodoListService.AddTodoItem(newItem);
+            newItem = new TodoItem { DueDate = DateTime.Today.AddDays(1) };
+            errorMessage = null;
+            await toast.ShowToast("New task added successfully", "success");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error adding new task: {ex.Message}";
+            await toast.ShowToast("Failed to add new task", "error");
+        }
+    }
+
+    private async Task RemoveItem(TodoItem item)
+    {
+        try
+        {
+            todoItems = await TodoListService.DeleteTodoItem(item);
+            errorMessage = null;
+            await toast.ShowToast("Task removed successfully", "success");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error deleting task: {ex.Message}";
+            await toast.ShowToast("Failed to remove task", "error");
+        }
+    }
+
+    private async Task ToggleTaskCompletion(string taskId)
+    {
+        try
+        {
+            todoItems = await TodoListService.ToggleTaskCompletion(taskId);
+            var task = todoItems.First(t => t.ID == taskId);
+            await toast.ShowToast($"Task {(task.IsCompleted ? "completed" : "marked as incomplete")}", "info");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error toggling task completion: {ex.Message}";
+            await toast.ShowToast("Failed to update task status", "error");
+        }
+    }
+
+    private void StartEdit(TodoItem item)
+    {
+        editingItem = item;
+    }
+
+    private void CancelEdit()
+    {
+        editingItem = null;
+    }
+
+    private async Task SaveEdit(TodoItem item)
+    {
+        try
+        {
+            item.UpdatedAt = DateTimeOffset.Now;
+            item.LastModifiedDate = DateTimeOffset.Now;
+            todoItems = await TodoListService.UpdateTodoItem(item);
+            editingItem = null;
+            await toast.ShowToast("Task updated successfully", "success");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error updating task: {ex.Message}";
+            await toast.ShowToast("Failed to update task", "error");
+        }
+    }
+
+    private void FilterTasks(string filter)
+    {
+        currentFilter = filter;
+    }
+
+    private void ToggleSubtasks(TodoItem item)
+    {
+        if (expandedItems.Contains(item.ID))
+        {
+            expandedItems.Remove(item.ID);
+        }
+        else
+        {
+            expandedItems.Add(item.ID);
+        }
+    }
+
+    private string GetWeekendCountdown()
+    {
+        var now = DateTime.Now;
+        var nextSaturday = now.Date.AddDays((int)DayOfWeek.Saturday - (int)now.DayOfWeek + 7).Date;
+        var timeUntilWeekend = nextSaturday - now;
+        return $"{timeUntilWeekend.Days}d {timeUntilWeekend.Hours}h {timeUntilWeekend.Minutes}m {timeUntilWeekend.Seconds}s";
+    }
+
+    private int GetYearProgress()
+    {
+        var now = DateTime.Now;
+        return (int)((now - new DateTime(now.Year, 1, 1)).TotalDays / (now.Year % 4 == 0 ? 366.0 : 365.0) * 100);
+    }
+
+    private int GetMonthProgress()
+    {
+        var now = DateTime.Now;
+        return (int)((now.Day - 1) / (double)(DateTime.DaysInMonth(now.Year, now.Month)) * 100);
+    }
+
+    private int GetWeekProgress()
+    {
+        var now = DateTime.Now;
+        return (int)((int)now.DayOfWeek / 7.0 * 100);
+    }
+
+    private int GetDayProgress() => (int)((DateTime.Now.TimeOfDay.TotalSeconds / 86400) * 100);
+}
