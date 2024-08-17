@@ -15,20 +15,14 @@ jobs:
       with:
         dotnet-version: '8.0.x'
         
-    - name: Restore dependencies
-      run: dotnet restore
-        
-    - name: Build
-      run: dotnet build --configuration Release --no-restore
-        
     - name: Update appsettings.json
       run: |
-        sed -i 's/"YOUR_PRODUCTION_CLIENT_ID"/"${{ secrets.GOOGLE_CLIENT_ID }}"/g' MickeyUtilityG/wwwroot/appsettings.json
-        sed -i 's/"YOUR_PRODUCTION_CLIENT_SECRET"/"${{ secrets.GOOGLE_CLIENT_SECRET }}"/g' MickeyUtilityG/wwwroot/appsettings.json
-        sed -i 's/"YOUR_PRODUCTION_SPREADSHEET_ID"/"${{ secrets.GOOGLE_SPREADSHEET_ID }}"/g' MickeyUtilityG/wwwroot/appsettings.json
+        sed -i 's/"YOUR_PRODUCTION_CLIENT_ID"/"${{ secrets.GOOGLE_CLIENT_ID }}"/g' MickeyUtilityG/MickeyUtilityG/wwwroot/appsettings.json
+        sed -i 's/"YOUR_PRODUCTION_CLIENT_SECRET"/"${{ secrets.GOOGLE_CLIENT_SECRET }}"/g' MickeyUtilityG/MickeyUtilityG/wwwroot/appsettings.json
+        sed -i 's/"YOUR_PRODUCTION_SPREADSHEET_ID"/"${{ secrets.GOOGLE_SPREADSHEET_ID }}"/g' MickeyUtilityG/MickeyUtilityG/wwwroot/appsettings.json
         
     - name: Publish .NET Core Project
-      run: dotnet publish MickeyUtilityG/MickeyUtilityG.csproj -c Release -o release --nologo
+      run: dotnet publish MickeyUtilityG/MickeyUtilityG/MickeyUtilityG.csproj -c Release -o release --nologo
     
     - name: Change base-tag in index.html from / to MickeyUtilityG
       run: sed -i 's/<base href="\/" \/>/<base href="\/MickeyUtilityG\/" \/>/g' release/wwwroot/index.html
