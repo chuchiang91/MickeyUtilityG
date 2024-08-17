@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -16,14 +16,17 @@ public class Program
         builder.RootComponents.Add<App>("#app");
 
         builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
-        builder.Services.AddLogging();
+
+        builder.Services.AddScoped<ConfigurationService>();
+        builder.Services.AddScoped<TodoListService>();
+        builder.Services.AddScoped<GoogleSheetsApiService>();
 
         // Load configuration
-        builder.Services.AddSingleton<IConfiguration>(builder.Configuration);
-
-        // Register services
-        builder.Services.AddScoped<GoogleSheetsApiService>();
-        builder.Services.AddScoped<TodoListService>();
+        builder.Configuration.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+        if (builder.HostEnvironment.IsDevelopment())
+        {
+            builder.Configuration.AddJsonFile("appsettings.Development.json", optional: true, reloadOnChange: true);
+        }
 
         await builder.Build().RunAsync();
     }

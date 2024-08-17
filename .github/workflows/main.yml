@@ -27,26 +27,15 @@ jobs:
     - name: Add .nojekyll file
       run: touch release/wwwroot/.nojekyll
       
+    - name: Create config.js
+      run: |
+        echo "window.config = {" > release/wwwroot/config.js
+        echo "  googleClientId: '${{ secrets.GOOGLE_CLIENT_ID }}'," >> release/wwwroot/config.js
+        echo "  googleClientSecret: '${{ secrets.GOOGLE_CLIENT_SECRET }}'," >> release/wwwroot/config.js
+        echo "  googleSpreadsheetId: '${{ secrets.GOOGLE_SPREADSHEET_ID }}'" >> release/wwwroot/config.js
+        echo "};" >> release/wwwroot/config.js
+      
     - name: Deploy to GitHub Pages
       uses: JamesIves/github-pages-deploy-action@v4
       with:
         folder: release/wwwroot
-
-    - name: Checkout gh-pages
-      uses: actions/checkout@v2
-      with:
-        ref: gh-pages
-        
-    - name: Update appsettings.json with secrets
-      run: |
-        sed -i 's/PLACEHOLDER_GOOGLE_CLIENT_ID/${{ secrets.GOOGLE_CLIENT_ID }}/g' appsettings.json
-        sed -i 's/PLACEHOLDER_GOOGLE_CLIENT_SECRET/${{ secrets.GOOGLE_CLIENT_SECRET }}/g' appsettings.json
-        sed -i 's/PLACEHOLDER_GOOGLE_SPREADSHEET_ID/${{ secrets.GOOGLE_SPREADSHEET_ID }}/g' appsettings.json
-        
-    - name: Commit updated appsettings.json
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add appsettings.json
-        git commit -m "Update appsettings.json with secrets" || echo "No changes to commit"
-        git push

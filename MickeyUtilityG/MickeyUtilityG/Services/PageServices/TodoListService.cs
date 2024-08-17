@@ -15,23 +15,30 @@ namespace MickeyUtilityG.Services.PageServices
         private readonly ILogger<TodoListService> _logger;
         private readonly string SPREADSHEET_ID;
         private const string RANGE_NAME = "Sheet1!A:L";
-
-        public TodoListService(GoogleSheetsApiService sheetsApiService, IConfiguration configuration, ILogger<TodoListService> logger)
+        private readonly ConfigurationService _configService;
+        public TodoListService(GoogleSheetsApiService sheetsApiService, ConfigurationService configService, ILogger<TodoListService> logger)
         {
             _sheetsApiService = sheetsApiService;
+            _configService = configService;
             _logger = logger;
 
             _logger.LogInformation("Initializing TodoListService");
-            SPREADSHEET_ID = configuration["Google:SpreadsheetId"];
-            _logger.LogInformation($"TodoListService initialized with Spreadsheet ID: {SPREADSHEET_ID}");
+        }
+
+        private async Task<string> GetSpreadsheetId()
+        {
+            var spreadsheetId = await _configService.GetConfigValue("googleSpreadsheetId");
+            _logger.LogInformation($"TodoListService using Spreadsheet ID: {spreadsheetId}");
+            return spreadsheetId;
         }
 
         public async Task<List<TodoItem>> GetTodoListFromGoogleSheets()
         {
             try
             {
+                var spreadsheetId = await GetSpreadsheetId();
                 _logger.LogInformation("Starting to fetch todo list from Google Sheets");
-                var sheetData = await _sheetsApiService.GetValuesAsync(SPREADSHEET_ID, RANGE_NAME);
+                var sheetData = await _sheetsApiService.GetValuesAsync(spreadsheetId, RANGE_NAME);
                 _logger.LogInformation($"Retrieved {sheetData.Count} rows from Google Sheets");
 
                 var records = new List<TodoItem>();
@@ -98,7 +105,8 @@ namespace MickeyUtilityG.Services.PageServices
         {
             try
             {
-                var currentData = await _sheetsApiService.GetValuesAsync(SPREADSHEET_ID, RANGE_NAME);
+                var spreadsheetId = await GetSpreadsheetId();
+                var currentData = await _sheetsApiService.GetValuesAsync(spreadsheetId, RANGE_NAME);
                 var currentRows = currentData.Count;
 
                 var updateData = new List<List<object>>

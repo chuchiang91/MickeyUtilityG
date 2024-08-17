@@ -19,27 +19,30 @@ namespace MickeyUtilityG.Services.Shared
         private readonly HttpClient _httpClient;
         private readonly IConfiguration _configuration;
         private string _accessToken;
+        private readonly ConfigurationService _configService;
 
-        public GoogleSheetsApiService(IJSRuntime jsRuntime, NavigationManager navigationManager, ILogger<GoogleSheetsApiService> logger, HttpClient httpClient, IConfiguration configuration)
+        public GoogleSheetsApiService(ConfigurationService configService, IJSRuntime jsRuntime, NavigationManager navigationManager, ILogger<GoogleSheetsApiService> logger, HttpClient httpClient, IConfiguration configuration)
         {
             _jsRuntime = jsRuntime;
             _navigationManager = navigationManager;
             _logger = logger;
             _httpClient = httpClient;
             _configuration = configuration;
+            _configService = configService;
         }
 
-        private string ClientId => _configuration["Google:ClientId"];
-        private string ClientSecret => _configuration["Google:ClientSecret"];
+        private async Task<string> GetClientId() => await _configService.GetConfigValue("googleClientId");
+        private async Task<string> GetClientSecret() => await _configService.GetConfigValue("googleClientSecret");
 
         public async Task<bool> AuthenticateAsync()
         {
             try
             {
                 var redirectUri = _navigationManager.BaseUri.TrimEnd('/') + "/authentication/google-callback";
+                var clientId = await GetClientId();
 
                 var authUrl = "https://accounts.google.com/o/oauth2/v2/auth" +
-                    $"?client_id={Uri.EscapeDataString(ClientId)}" +
+                    $"?client_id={Uri.EscapeDataString(clientId)}" +
                     $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
                     "&response_type=code" +
                     "&scope=" + Uri.EscapeDataString("https://www.googleapis.com/auth/spreadsheets") +
@@ -66,13 +69,15 @@ namespace MickeyUtilityG.Services.Shared
                 _logger.LogInformation($"Handling authorization code: {code.Substring(0, 5)}...");
 
                 var redirectUri = _navigationManager.BaseUri.TrimEnd('/') + "/authentication/google-callback";
+                var clientId = await GetClientId();
+                var clientSecret = await GetClientSecret();
 
                 var tokenRequest = new HttpRequestMessage(HttpMethod.Post, "https://oauth2.googleapis.com/token");
                 var content = new FormUrlEncodedContent(new[]
                 {
                     new KeyValuePair<string, string>("code", code),
-                    new KeyValuePair<string, string>("client_id", ClientId),
-                    new KeyValuePair<string, string>("client_secret", ClientSecret),
+                    new KeyValuePair<string, string>("client_id", clientId),
+                    new KeyValuePair<string, string>("client_secret", clientSecret),
                     new KeyValuePair<string, string>("redirect_uri", redirectUri),
                     new KeyValuePair<string, string>("grant_type", "authorization_code")
                 });
