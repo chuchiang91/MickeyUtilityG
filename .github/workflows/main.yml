@@ -15,6 +15,12 @@ jobs:
       with:
         dotnet-version: '8.0.x'
         
+    - name: Restore dependencies
+      run: dotnet restore
+        
+    - name: Build
+      run: dotnet build --configuration Release --no-restore
+        
     - name: Update appsettings.json
       run: |
         sed -i 's/"YOUR_PRODUCTION_CLIENT_ID"/"${{ secrets.GOOGLE_CLIENT_ID }}"/g' MickeyUtilityG/wwwroot/appsettings.json
