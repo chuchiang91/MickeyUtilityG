@@ -1,22 +1,18 @@
-﻿using Microsoft.JSInterop;
-using Microsoft.Extensions.Configuration;
-using System.Threading.Tasks;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Components;
 
 public class ConfigurationService
 {
-    private readonly IJSRuntime _jsRuntime;
     private readonly IConfiguration _configuration;
     private readonly NavigationManager _navigationManager;
 
-    public ConfigurationService(IJSRuntime jsRuntime, IConfiguration configuration, NavigationManager navigationManager)
+    public ConfigurationService(IConfiguration configuration, NavigationManager navigationManager)
     {
-        _jsRuntime = jsRuntime;
         _configuration = configuration;
         _navigationManager = navigationManager;
     }
 
-    public async Task<string> GetConfigValue(string key)
+    public string GetConfigValue(string key)
     {
         if (_navigationManager.BaseUri.Contains("localhost"))
         {
@@ -26,7 +22,7 @@ public class ConfigurationService
         else
         {
             // Production environment
-            return await _jsRuntime.InvokeAsync<string>("eval", $"window.config.{key}");
+            return _configuration[$"Google:{key}"];
         }
     }
 }

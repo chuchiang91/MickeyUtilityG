@@ -27,14 +27,6 @@ jobs:
     - name: Add .nojekyll file
       run: touch release/wwwroot/.nojekyll
       
-    - name: Create config.js
-      run: |
-        echo "window.config = {" > release/wwwroot/config.js
-        echo "  googleClientId: '${{ secrets.GOOGLE_CLIENT_ID }}'," >> release/wwwroot/config.js
-        echo "  googleClientSecret: '${{ secrets.GOOGLE_CLIENT_SECRET }}'," >> release/wwwroot/config.js
-        echo "  googleSpreadsheetId: '${{ secrets.GOOGLE_SPREADSHEET_ID }}'" >> release/wwwroot/config.js
-        echo "};" >> release/wwwroot/config.js
-      
     - name: Deploy to GitHub Pages
       uses: JamesIves/github-pages-deploy-action@v4
       with:
