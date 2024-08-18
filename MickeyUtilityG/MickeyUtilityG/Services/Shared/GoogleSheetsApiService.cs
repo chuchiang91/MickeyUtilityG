@@ -38,7 +38,10 @@ namespace MickeyUtilityG.Services.Shared
             try
             {
                 var redirectUri = _navigationManager.BaseUri.TrimEnd('/') + "/authentication/google-callback";
-                var clientId =  GetClientId();
+                var clientId = GetClientId();
+
+                _logger.LogInformation($"ClientId: {clientId}");
+                _logger.LogInformation($"RedirectUri: {redirectUri}");
 
                 var authUrl = "https://accounts.google.com/o/oauth2/v2/auth" +
                     $"?client_id={Uri.EscapeDataString(clientId)}" +
