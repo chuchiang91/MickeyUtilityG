@@ -27,7 +27,7 @@ namespace MickeyUtilityG.Services.PageServices
 
         private async Task<string> GetSpreadsheetId()
         {
-            var spreadsheetId = await _configService.GetConfigValue("googleSpreadsheetId");
+            var spreadsheetId = _configService.GetConfigValue("googleSpreadsheetId");
             _logger.LogInformation($"TodoListService using Spreadsheet ID: {spreadsheetId}");
             return spreadsheetId;
         }

@@ -31,15 +31,14 @@ namespace MickeyUtilityG.Services.Shared
             _configService = configService;
         }
 
-        private async Task<string> GetClientId() => await _configService.GetConfigValue("googleClientId");
-        private async Task<string> GetClientSecret() => await _configService.GetConfigValue("googleClientSecret");
-
+        private string GetClientId() => _configService.GetConfigValue("googleClientId");
+        private string GetClientSecret() => _configService.GetConfigValue("googleClientSecret");
         public async Task<bool> AuthenticateAsync()
         {
             try
             {
                 var redirectUri = _navigationManager.BaseUri.TrimEnd('/') + "/authentication/google-callback";
-                var clientId = await GetClientId();
+                var clientId =  GetClientId();
 
                 var authUrl = "https://accounts.google.com/o/oauth2/v2/auth" +
                     $"?client_id={Uri.EscapeDataString(clientId)}" +
@@ -69,8 +68,8 @@ namespace MickeyUtilityG.Services.Shared
                 _logger.LogInformation($"Handling authorization code: {code.Substring(0, 5)}...");
 
                 var redirectUri = _navigationManager.BaseUri.TrimEnd('/') + "/authentication/google-callback";
-                var clientId = await GetClientId();
-                var clientSecret = await GetClientSecret();
+                var clientId =  GetClientId();
+                var clientSecret =  GetClientSecret();
 
                 var tokenRequest = new HttpRequestMessage(HttpMethod.Post, "https://oauth2.googleapis.com/token");
                 var content = new FormUrlEncodedContent(new[]
