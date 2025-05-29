@@ -1,5 +1,5 @@
 ﻿// Replace these with your actual Google API credentials
-const CLIENT_ID = '303704802649-1elhd6tjhdef2t5m4mk82gkdfdo1vtsq.apps.googleusercontent.com';
+const CLIENT_ID = '';
 const API_KEY = 'YOUR_API_KEY_HERE';
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 
